@@ -1,0 +1,33 @@
+B5 - Crypto
+Sujet du mini-projet 2 : Requireris
+
+I. Prerequis:
+- RFC #4226 (HOTP), RFC #6238 (TOTP), RFC #3548 (base32 key strings)
+
+
+II. Sujet:
+Requireris est un generateur de code de type OTP [1].
+Le langage est libre, les bibliotheques aussi a l'exceptions des 
+bibliotheques specialisees dans la generation d'OTP telles que 
+python-otp et ses homologues.
+L'utilisation de bibliotheques/modules/... specialises dans la 
+generation d'OTP sera considere comme de la triche.
+
+Parties obligatoires:
+- programme fonctionnel
+- compatibilite Google (Gmail par exemple)
+- compatibilite Windows 7 ou superieur
+
+III. Bonus:
+- interface graphique
+- multi-comptes
+- chiffrement/modification de la cle utilisee
+- device specifique (Android, IOS, ... mais contacter le responsable
+de la matiere avant !)
+Notes: en cas d'utilisation de device specifique, une version, meme 
+differente, doit etre fonctionnelle sur Windows 7 ou superieur.
+
+
+References:
+[1] http://en.wikipedia.org/wiki/One-time_password
+
