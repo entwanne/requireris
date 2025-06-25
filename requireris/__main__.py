@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
 
+from argparse import ArgumentParser
 from sys import stderr
-
-import clize
 
 from . import exceptions
 from .opts import opt_get, opt_append, opt_delete
@@ -14,46 +13,51 @@ def print_err(*args, **kwargs):
     return print(*args, **kwargs)
 
 
-@clize.clize(
-    alias = {
-        'delete' : ('del', 'd'),
-        'append' : ('add', 'a', 'update', 'u'),
-        'key' : ('k',),
-        'db' : ('file', 'f'),
-        'http' : ('server', 's'),
-        'port' : ('p',)
-        }
-)
-def main(delete=False, append=False, key='', db='.requireris', http=False, port=8080, *users):
-    """
-    Requireris - Google Authentication's implementation
+def _get_parser():
+    parser = ArgumentParser(prog='requireris')
+    parser.set_defaults(func='GET')
 
-    users: List of users
+    subparsers = parser.add_subparsers(required=False)
 
-    delete: Delete all entries for users mentioned
+    get_parser = subparsers.add_parser('get')
 
-    append: Append/Update key for users mentioned
+    append_parser = subparsers.add_parser('append', aliases=['add'], help="Append/Update key for users mentioned")
+    append_parser.set_defaults(func='ADD')
+    append_parser.add_argument('key')
 
-    key: Key for append operation
+    delete_parser = subparsers.add_parser('delete', aliases=['del'], help="Delete all entries for users mentioned")
+    delete_parser.set_defaults(func='DEL')
 
-    db: Database's filename
+    http_parser = subparsers.add_parser('http', aliases=['server'], help="Run an HTTP server")
+    http_parser.set_defaults(func='HTTP')
+    http_parser.add_argument('--port', nargs='?', type=int, default=8080)
 
-    http: Run an HTTP server
+    for p in (parser, get_parser, append_parser, delete_parser, http_parser):
+        p.add_argument('-u', '--user', nargs='*', dest='users')
+        p.add_argument('--db', '--file', nargs='?', default='.requireris', help="Database's filename")
 
-    port: Port for this HTTP server
-    """
-    if http:
-        return opt_http(port, db)
-    if delete:
-        return opt_delete(users, db)
-    if append:
-        return opt_append(users, key, db)
-    return opt_get(users, db)
+    return parser
+
+
+parser = _get_parser()
+
+
+def main():
+    args = parser.parse_args()
+    match args.func:
+        case 'HTTP':
+            return opt_http(args.port, args.db)
+        case 'DEL':
+            return opt_delete(args.users, args.db)
+        case 'ADD':
+            return opt_append(args.users, args.key, args.db)
+        case _:
+            return opt_get(args.users, args.db)
 
 
 if __name__ == '__main__':
     try:
-        clize.run(main)
+        main()
     except exceptions.UserNotExist as user:
         print_err('User %s does not exist' % user)
     except exceptions.WrongKey as key:
