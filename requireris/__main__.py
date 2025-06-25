@@ -21,11 +21,11 @@ def _get_parser():
 
     get_parser = subparsers.add_parser('get')
 
-    append_parser = subparsers.add_parser('append', aliases=['add'], help="Append/Update key for users mentioned")
+    append_parser = subparsers.add_parser('append', aliases=['add'], help="Append/Update key for names mentioned")
     append_parser.set_defaults(func='ADD')
     append_parser.add_argument('key')
 
-    delete_parser = subparsers.add_parser('delete', aliases=['del'], help="Delete all entries for users mentioned")
+    delete_parser = subparsers.add_parser('delete', aliases=['del'], help="Delete all entries for names mentioned")
     delete_parser.set_defaults(func='DEL')
 
     http_parser = subparsers.add_parser('http', aliases=['server'], help="Run an HTTP server")
@@ -33,7 +33,7 @@ def _get_parser():
     http_parser.add_argument('--port', nargs='?', type=int, default=8080)
 
     for p in (parser, get_parser, append_parser, delete_parser, http_parser):
-        p.add_argument('-u', '--user', nargs='*', dest='users')
+        p.add_argument('-n', '--name', nargs='*', dest='names')
         p.add_argument('--db', '--file', nargs='?', default='.requireris', help="Database's filename")
 
     return parser
@@ -48,21 +48,21 @@ def main():
         case 'HTTP':
             return opt_http(args.port, args.db)
         case 'DEL':
-            return opt_delete(args.users, args.db)
+            return opt_delete(args.names, args.db)
         case 'ADD':
-            return opt_append(args.users, args.key, args.db)
+            return opt_append(args.names, args.key, args.db)
         case _:
-            return opt_get(args.users, args.db)
+            return opt_get(args.names, args.db)
 
 
 if __name__ == '__main__':
     try:
         main()
-    except exceptions.UserNotExist as user:
-        print_err('User %s does not exist' % user)
+    except exceptions.NameNotExist as name:
+        print_err('Name %s does not exist' % name)
     except exceptions.WrongKey as key:
         print_err("The key '%s' is not well-formated" % key)
-    except exceptions.NoUsersSelected:
-        print_err('You should select users to execute this operation')
+    except exceptions.NoNamesSelected:
+        print_err('You should select names to execute this operation')
     except:
         print_err("A fatal error occured, please check your database's file")

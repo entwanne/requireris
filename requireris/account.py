@@ -7,18 +7,18 @@ from . import exceptions
 def get_accounts(filename):
     with open(filename) as csvfile:
         reader = csv.reader(csvfile, delimiter=':')
-        return {user:key.replace(' ', '').upper() for (user, key) in reader}
+        return {name:key.replace(' ', '').upper() for (name, key) in reader}
     return None
 
 
 def update_accounts(accounts, filename):
     with open(filename, 'w') as csvfile:
         writer = csv.writer(csvfile, delimiter=':')
-        for user, key in accounts.items():
-            writer.writerow([user, key])
+        for name, key in accounts.items():
+            writer.writerow([name, key])
 
 
-def add_accounts(users, key, filename):
+def add_accounts(names, key, filename):
     if not key:
         raise exceptions.WrongKey(key)
     try:
@@ -26,16 +26,16 @@ def add_accounts(users, key, filename):
     except:
         raise exceptions.WrongKey(key)
     accounts = get_accounts(filename)
-    for user in users:
-        accounts[user] = key
+    for name in names:
+        accounts[name] = key
     update_accounts(accounts, filename)
 
 
-def del_accounts(users, filename):
+def del_accounts(names, filename):
     accounts = get_accounts(filename)
     try:
-        for user in users:
-            del accounts[user]
+        for name in names:
+            del accounts[name]
     except KeyError as e:
-        raise exceptions.UserNotExist(e)
+        raise exceptions.NameNotExist(e)
     update_accounts(accounts, filename)

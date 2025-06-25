@@ -24,17 +24,17 @@ def HandlerDB(db):
             return serve
         def act_get(self, pattern='*'):
             return (WWW / 'index.html').read_text() % pattern
-        def act_del(self, user):
+        def act_del(self, name):
             try:
-                del_accounts([user], db)
-            except exceptions.UserNotExist as user:
-                return 'Error: User «%s» does not exist' % user
+                del_accounts([name], db)
+            except exceptions.NameNotExist:
+                return 'Error: Name «%s» does not exist' % name
             except:
                 return 'An error occurred'
             return ''
-        def act_add(self, user, key):
+        def act_add(self, name, key):
             try:
-                add_accounts([user], key, db)
+                add_accounts([name], key, db)
             except exceptions.WrongKey as key:
                 return 'Error: The key «%s» is not well-formated' % key
             except:
@@ -42,8 +42,8 @@ def HandlerDB(db):
             return ''
         def act_json_get(self, pattern='*'):
             accounts = get_accounts(db).items()
-            accounts = ((user, key) for (user, key) in accounts if match(user, pattern))
-            accounts = [{"user": user, "auth": auth(key)} for (user, key) in accounts]
+            accounts = ((name, key) for (name, key) in accounts if match(name, pattern))
+            accounts = [{"name": name, "auth": auth(key)} for (name, key) in accounts]
             return json.dumps(accounts)
         def act_json_timer(self):
             return '{"validity": %d}' % (30 - int(time()) % 30)

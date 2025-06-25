@@ -2,9 +2,9 @@ class WrongKey(BaseException):
     pass
 
 
-class UserNotExist(BaseException):
+class NameNotExist(BaseException):
     pass
 
 
-class NoUsersSelected(BaseException):
+class NoNameSelected(BaseException):
     pass
