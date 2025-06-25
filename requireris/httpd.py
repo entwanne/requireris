@@ -5,14 +5,14 @@ import json
 import os
 
 from . import exceptions
-from .account import get_accounts, add_accounts, del_accounts
+from .database import load_database, add_names, del_names
 from .auth import auth
 from .match import match
 
 WWW = resources.files('requireris.www')
 
 
-def HandlerDB(db):
+def HandlerDB(db_path):
     class Handler(BaseHTTPRequestHandler):
         def act_static_serve(self, directory):
             def serve(path):
@@ -26,7 +26,7 @@ def HandlerDB(db):
             return (WWW / 'index.html').read_text() % pattern
         def act_del(self, name):
             try:
-                del_accounts([name], db)
+                del_names([name], db_path)
             except exceptions.NameNotExist:
                 return 'Error: Name «%s» does not exist' % name
             except:
@@ -34,17 +34,17 @@ def HandlerDB(db):
             return ''
         def act_add(self, name, key):
             try:
-                add_accounts([name], key, db)
+                add_names([name], key, db_path)
             except exceptions.WrongKey as key:
                 return 'Error: The key «%s» is not well-formated' % key
             except:
                 return 'An error occured'
             return ''
         def act_json_get(self, pattern='*'):
-            accounts = get_accounts(db).items()
-            accounts = ((name, key) for (name, key) in accounts if match(name, pattern))
-            accounts = [{"name": name, "auth": auth(key)} for (name, key) in accounts]
-            return json.dumps(accounts)
+            db = load_database(db_path).items()
+            db = ((name, key) for (name, key) in db if match(name, pattern))
+            db = [{"name": name, "auth": auth(key)} for (name, key) in db]
+            return json.dumps(db)
         def act_json_timer(self):
             return '{"validity": %d}' % (30 - int(time()) % 30)
         def act_json(self, act, *args):
@@ -80,9 +80,9 @@ def HandlerDB(db):
     return Handler
 
 
-def opt_http(port, db):
+def opt_http(port, db_path):
     try:
-        httpd = HTTPServer(('', port), HandlerDB(db))
+        httpd = HTTPServer(('', port), HandlerDB(db_path))
         print('Starting serveur on http://127.0.0.1:%d' % port)
         httpd.serve_forever()
     except:
