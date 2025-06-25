@@ -14,3 +14,6 @@ homepage = "https://github.com/entwanne/requireris"
 
 [project.scripts]
 requireris = "requireris.__main__:main"
+
+[tools.setuptools.package-data]
+requireris = "www/*"

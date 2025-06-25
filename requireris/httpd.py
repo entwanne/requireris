@@ -1,4 +1,5 @@
 from http.server import HTTPServer, BaseHTTPRequestHandler
+from importlib import resources
 from time import time
 import json
 import os
@@ -8,22 +9,21 @@ from .account import get_accounts, add_accounts, del_accounts
 from .auth import auth
 from .match import match
 
+WWW = resources.files('requireris.www')
+
 
 def HandlerDB(db):
     class Handler(BaseHTTPRequestHandler):
         def act_static_serve(self, directory):
             def serve(path):
                 try:
-                    with open(os.path.join(directory, path), 'rb') as f:
-                        return f.read()
+                    return (WWW / directory / path).read_text()
                 except:
                     pass
                 return ''
             return serve
         def act_get(self, pattern='*'):
-            with open('www/index.html') as f:
-                return f.read() % pattern
-            return ''
+            return (WWW / 'index.html').read_text() % pattern
         def act_del(self, user):
             try:
                 del_accounts([user], db)
@@ -61,9 +61,9 @@ def HandlerDB(db):
                 'get' : self.act_get,
                 'add' : self.act_add,
                 'del' : self.act_del,
-                'js' : self.act_static_serve('www/js'),
-                'css' : self.act_static_serve('www/css'),
-                'img' : self.act_static_serve('www/img'),
+                'js' : self.act_static_serve('js'),
+                'css' : self.act_static_serve('css'),
+                'img' : self.act_static_serve('img'),
                 'json' : self.act_json
                 }
             act, *args = self.path[1:].split('/')
