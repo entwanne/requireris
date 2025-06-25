@@ -1,15 +1,18 @@
 #!/usr/bin/env python3
 
+from sys import stderr
+
 import clize
 
-from opts import opt_get, opt_append, opt_delete
-from httpd import opt_http
-import exceptions
-from sys import stderr
+from . import exceptions
+from .opts import opt_get, opt_append, opt_delete
+from .httpd import opt_http
+
 
 def print_err(*args, **kwargs):
     kwargs['file'] = stderr
     return print(*args, **kwargs)
+
 
 @clize.clize(
     alias = {
@@ -46,6 +49,7 @@ def main(delete=False, append=False, key='', db='.requireris', http=False, port=
     if append:
         return opt_append(users, key, db)
     return opt_get(users, db)
+
 
 if __name__ == '__main__':
     try:

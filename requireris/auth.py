@@ -4,25 +4,32 @@ import hmac
 from hashlib import sha1
 import struct
 
+
 # Makes an 8-bytes string from an unsigned long long (big-endian)
 def ull_to_str(l):
     return struct.pack('>Q', int(l))
+
 
 # Makes an unsigned int from a 4-bytes string (big-endian)
 def str_to_ui(s):
     return struct.unpack('>I', s)[0]
 
+
 def hmac_sha1(key, message):
     return hmac.new(key, ull_to_str(message), sha1).digest()
+
 
 def last_nibble(hash):
     return hash[-1] & 15
 
+
 def remove_first_bit(hash):
     return bytes([hash[0] & 0x7f]) + hash[1:]
 
+
 def padding_6(i):
     return '%06d' % i
+
 
 def auth(secret):
     key = base32decode(secret)

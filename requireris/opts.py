@@ -1,6 +1,7 @@
-from account import get_accounts, add_accounts, del_accounts
-from auth import auth
-import exceptions
+from . import exceptions
+from .account import get_accounts, add_accounts, del_accounts
+from .auth import auth
+
 
 def opt_get(users, db):
     accounts = get_accounts(db)
