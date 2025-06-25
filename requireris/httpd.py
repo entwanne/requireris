@@ -1,3 +1,4 @@
+from fnmatch import fnmatch
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from importlib import resources
 from time import time
@@ -7,7 +8,6 @@ import os
 from . import exceptions
 from .database import load_database, add_names, del_names
 from .auth import auth
-from .match import match
 
 WWW = resources.files('requireris.www')
 
@@ -42,7 +42,7 @@ def HandlerDB(db_path):
             return ''
         def act_json_get(self, pattern='*'):
             db = load_database(db_path).items()
-            db = ((name, key) for (name, key) in db if match(name, pattern))
+            db = ((name, key) for (name, key) in db if fnmatch(name, pattern))
             db = [{"name": name, "auth": auth(key)} for (name, key) in db]
             return json.dumps(db)
         def act_json_timer(self):
