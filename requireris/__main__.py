@@ -7,7 +7,7 @@ from sys import stderr
 
 from . import exceptions
 from .database import Database
-from .opts import opt_get, opt_append, opt_delete
+from .opts import opt_list, opt_get, opt_append, opt_delete
 from .httpd import opt_http
 
 
@@ -18,8 +18,8 @@ def print_err(*args, **kwargs):
 
 def _get_parser():
     parser = ArgumentParser(prog='requireris')
-    parser.set_defaults(func=lambda args, db: opt_get(db, *args.names))
-    parser.set_defaults(names=[])
+    parser.set_defaults(func=lambda args, db: opt_list(db, *args.patterns))
+    parser.set_defaults(patterns=[])
 
     parser.add_argument(
         '--db-path',
@@ -44,8 +44,12 @@ def _get_parser():
 
     subparsers = parser.add_subparsers(required=False)
 
+    list_parser = subparsers.add_parser('list')
+    list_parser.add_argument('patterns', nargs='*')
+
     get_parser = subparsers.add_parser('get')
-    get_parser.add_argument('names', nargs='*')
+    get_parser.set_defaults(func=lambda args, db: opt_get(db, *args.names))
+    get_parser.add_argument('names', nargs='+')
 
     append_parser = subparsers.add_parser('append', aliases=['add'], help="Append/Update key for name mentioned")
     append_parser.set_defaults(func=lambda args, db: opt_append(db, args.name, args.key))

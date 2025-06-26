@@ -1,10 +1,19 @@
+from fnmatch import fnmatch
+
 from . import exceptions
 from .auth import auth
 
 
+def opt_list(db, *patterns):
+    print('Available keys:')
+    for name in db.keys():
+        if not patterns or any(fnmatch(name, p) for p in patterns):
+            print(name)
+
+
 def opt_get(db, *names):
     if not names:
-        names = db.keys()
+        raise exceptions.NoNameSelected
     for name in names:
         try:
             print('%s: %s' % (name, auth(db[name])))
