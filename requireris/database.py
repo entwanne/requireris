@@ -5,31 +5,40 @@ from . import exceptions
 
 
 class Database:
-    def __init__(self, **data):
+    def __init__(self, path=None, **data):
+        self.path = path
         self._data = data
 
-    @classmethod
-    def load(cls, file):
+    def load(self, missing_ok=False):
         config = ConfigParser(allow_unnamed_section=True)
-        config.read_file(file)
+
+        try:
+            with self.path.open() as file:
+                config.read_file(file)
+        except FileNotFoundError:
+            if missing_ok:
+                return
+            else:
+                raise
 
         if not config.has_section(UNNAMED_SECTION):
-            return cls()
+            return
 
         values = config[UNNAMED_SECTION]
-        return cls(**{
+        return self._data.update({
             name: key.replace(' ', '').upper()
             for name, key in values.items()
         })
 
-    def dump(self, file):
+    def save(self):
         config = ConfigParser(allow_unnamed_section=True)
         config.read_string('a=b')
         config.remove_option(UNNAMED_SECTION, 'a')
 
         for name, key in self.items():
             config.set(UNNAMED_SECTION, name, key)
-        config.write(file)
+        with self.path.open('w') as file:
+            config.write(file)
 
     def keys(self):
         return self._data.keys()
@@ -55,13 +64,3 @@ class Database:
 
     def __delitem__(self, key):
         del self._data[key]
-
-
-def load_database(filename):
-    with open(filename) as f:
-        return Database.load(f)
-
-
-def save_database(db, filename):
-    with open(filename, 'w') as f:
-        db.dump(f)

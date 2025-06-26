@@ -6,14 +6,13 @@ import json
 import os
 
 from . import exceptions
-from .database import load_database
 from .auth import auth
 from .opts import opt_append, opt_delete
 
 WWW = resources.files('requireris.www')
 
 
-def HandlerDB(db_path):
+def HandlerDB(db):
     class Handler(BaseHTTPRequestHandler):
         def act_static_serve(self, directory):
             def serve(path):
@@ -27,7 +26,7 @@ def HandlerDB(db_path):
             return (WWW / 'index.html').read_text() % pattern
         def act_del(self, name):
             try:
-                opt_delete([name], db_path)
+                opt_delete(db, name)
             except exceptions.NameNotExist:
                 return 'Error: Name «%s» does not exist' % name
             except:
@@ -35,17 +34,16 @@ def HandlerDB(db_path):
             return ''
         def act_add(self, name, key):
             try:
-                opt_append([name], key, db_path)
+                opt_append(db, name, key)
             except exceptions.WrongKey as key:
                 return 'Error: The key «%s» is not well-formated' % key
             except:
                 return 'An error occured'
             return ''
         def act_json_get(self, pattern='*'):
-            db = load_database(db_path).items()
-            db = ((name, key) for (name, key) in db if fnmatch(name, pattern))
-            db = [{"name": name, "auth": auth(key)} for (name, key) in db]
-            return json.dumps(db)
+            entries = ((name, key) for (name, key) in db.items() if fnmatch(name, pattern))
+            entries = [{"name": name, "auth": auth(key)} for (name, key) in entries]
+            return json.dumps(entries)
         def act_json_timer(self):
             return '{"validity": %d}' % (30 - int(time()) % 30)
         def act_json(self, act, *args):
@@ -81,9 +79,9 @@ def HandlerDB(db_path):
     return Handler
 
 
-def opt_http(port, db_path):
+def opt_http(db, port):
     try:
-        httpd = HTTPServer(('', port), HandlerDB(db_path))
+        httpd = HTTPServer(('', port), HandlerDB(db))
         print('Starting serveur on http://127.0.0.1:%d' % port)
         httpd.serve_forever()
     except:

@@ -1,9 +1,12 @@
 #!/usr/bin/env python3
 
 from argparse import ArgumentParser
+from os import getenv
+from pathlib import Path
 from sys import stderr
 
 from . import exceptions
+from .database import Database
 from .opts import opt_get, opt_append, opt_delete
 from .httpd import opt_http
 
@@ -15,26 +18,47 @@ def print_err(*args, **kwargs):
 
 def _get_parser():
     parser = ArgumentParser(prog='requireris')
-    parser.set_defaults(func='GET')
+    parser.set_defaults(func=lambda args, db: opt_get(db, *args.names))
+    parser.set_defaults(names=[])
+
+    parser.add_argument(
+        '--db-path',
+        nargs='?',
+        type=Path,
+        default=getenv('REQUIRERIS_DB_PATH'),
+        help="Path to current database file (defaulting to REQUIRERIS_DB_PATH env variable or computed with db-dir and db-file)",
+    )
+    parser.add_argument(
+        '--db-dir',
+        nargs='?',
+        type=Path,
+        default=Path(getenv('REQUIRERIS_DB_DIR', Path.home() / '.config')),
+        help="Directory of current database file"
+    )
+    parser.add_argument(
+        '--db-file',
+        nargs='?',
+        default=getenv('REQUIRERIS_DB_FILE', 'requireris.db'),
+        help="Name of current database file",
+    )
 
     subparsers = parser.add_subparsers(required=False)
 
     get_parser = subparsers.add_parser('get')
+    get_parser.add_argument('names', nargs='*')
 
-    append_parser = subparsers.add_parser('append', aliases=['add'], help="Append/Update key for names mentioned")
-    append_parser.set_defaults(func='ADD')
+    append_parser = subparsers.add_parser('append', aliases=['add'], help="Append/Update key for name mentioned")
+    append_parser.set_defaults(func=lambda args, db: opt_append(db, args.name, args.key))
+    append_parser.add_argument('name')
     append_parser.add_argument('key')
 
     delete_parser = subparsers.add_parser('delete', aliases=['del'], help="Delete all entries for names mentioned")
-    delete_parser.set_defaults(func='DEL')
+    delete_parser.set_defaults(func=lambda args, db: opt_delete(db, *args.names))
+    delete_parser.add_argument('names', nargs='+')
 
     http_parser = subparsers.add_parser('http', aliases=['server'], help="Run an HTTP server")
-    http_parser.set_defaults(func='HTTP')
+    http_parser.set_defaults(func=lambda args, db: opt_http(db, args.port))
     http_parser.add_argument('--port', nargs='?', type=int, default=8080)
-
-    for p in (parser, get_parser, append_parser, delete_parser, http_parser):
-        p.add_argument('-n', '--name', nargs='*', dest='names')
-        p.add_argument('--db', '--file', nargs='?', default='.requireris', help="Database's filename")
 
     return parser
 
@@ -44,15 +68,13 @@ parser = _get_parser()
 
 def main():
     args = parser.parse_args()
-    match args.func:
-        case 'HTTP':
-            return opt_http(args.port, args.db)
-        case 'DEL':
-            return opt_delete(args.names, args.db)
-        case 'ADD':
-            return opt_append(args.names, args.key, args.db)
-        case _:
-            return opt_get(args.names, args.db)
+    if args.db_path is None:
+        args.db_path = args.db_dir / args.db_file
+
+    db = Database(args.db_path)
+    db.load(missing_ok=True)
+
+    args.func(args, db)
 
 
 if __name__ == '__main__':
