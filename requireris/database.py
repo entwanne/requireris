@@ -47,6 +47,10 @@ class Database:
         return self._data[key]
 
     def __setitem__(self, key, value):
+        try:
+            b32decode(value.replace(' ', '').upper())
+        except:
+            raise exceptions.WrongKey(value)
         self._data[key] = value
 
     def __delitem__(self, key):
@@ -61,26 +65,3 @@ def load_database(filename):
 def save_database(db, filename):
     with open(filename, 'w') as f:
         db.dump(f)
-
-
-def add_names(names, key, filename):
-    if not key:
-        raise exceptions.WrongKey(key)
-    try:
-        b32decode(key.replace(' ', '').upper())
-    except:
-        raise exceptions.WrongKey(key)
-    db = load_database(filename)
-    for name in names:
-        db[name] = key
-    save_database(db, filename)
-
-
-def del_names(names, filename):
-    db = load_database(filename)
-    try:
-        for name in names:
-            del db[name]
-    except KeyError as e:
-        raise exceptions.NameNotExist(e)
-    save_database(db, filename)

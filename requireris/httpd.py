@@ -6,8 +6,9 @@ import json
 import os
 
 from . import exceptions
-from .database import load_database, add_names, del_names
+from .database import load_database
 from .auth import auth
+from .opts import opt_append, opt_delete
 
 WWW = resources.files('requireris.www')
 
@@ -26,7 +27,7 @@ def HandlerDB(db_path):
             return (WWW / 'index.html').read_text() % pattern
         def act_del(self, name):
             try:
-                del_names([name], db_path)
+                opt_delete([name], db_path)
             except exceptions.NameNotExist:
                 return 'Error: Name «%s» does not exist' % name
             except:
@@ -34,7 +35,7 @@ def HandlerDB(db_path):
             return ''
         def act_add(self, name, key):
             try:
-                add_names([name], key, db_path)
+                opt_append([name], key, db_path)
             except exceptions.WrongKey as key:
                 return 'Error: The key «%s» is not well-formated' % key
             except:
