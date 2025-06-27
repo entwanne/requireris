@@ -1,7 +1,7 @@
 from fnmatch import fnmatch
 
 from . import exceptions
-from .auth import auth
+from .totp import generate_totp
 
 
 def opt_list(db, *patterns):
@@ -16,7 +16,7 @@ def opt_get(db, *names):
         raise exceptions.NoNameSelected
     for name in names:
         try:
-            print('%s: %s' % (name, auth(db[name])))
+            print('%s: %s' % (name, generate_totp(db[name])))
         except KeyError as e:
             raise exceptions.NameNotExist(e)
 

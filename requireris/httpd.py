@@ -6,8 +6,8 @@ import json
 import os
 
 from . import exceptions
-from .auth import auth
 from .opts import opt_append, opt_delete
+from .totp import generate_totp
 
 WWW = resources.files('requireris.www')
 
@@ -42,7 +42,7 @@ def HandlerDB(db):
             return ''
         def act_json_get(self, pattern='*'):
             entries = ((name, key) for (name, key) in db.items() if fnmatch(name, pattern))
-            entries = [{"name": name, "auth": auth(key)} for (name, key) in entries]
+            entries = [{"name": name, "totp": generate_totp(key)} for (name, key) in entries]
             return json.dumps(entries)
         def act_json_timer(self):
             return '{"validity": %d}' % (30 - int(time()) % 30)
