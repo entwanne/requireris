@@ -9,6 +9,7 @@ from urllib.parse import parse_qsl
 from jinja2 import Environment, PackageLoader, select_autoescape
 
 from .totp import generate_totp
+from .utils import get_socket_url
 
 
 class RequestHandler(BaseHTTPRequestHandler):
@@ -20,6 +21,10 @@ class RequestHandler(BaseHTTPRequestHandler):
     def db(self):
         return self.server.db
 
+    @property
+    def server_url(self):
+        return self.server.url
+
     def render_template(self, tpl_path, **kwargs):
         template = self.env.get_template(tpl_path)
         content = template.render(**kwargs)
@@ -29,46 +34,113 @@ class RequestHandler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(content.encode())
 
+    def json_response(self, payload):
+        self.send_response(200)
+        self.send_header('Content-type', 'application/json')
+        self.end_headers()
+        self.wfile.write(json.dumps(payload, indent=2).encode())
+
     def redirect(self, location):
         self.send_response(303)
         self.send_header('Location', location)
         self.end_headers()
 
     def get_data(self):
+        content_type = self.headers['Content-Type']
         size = int(self.headers['Content-Length'])
-        raw = self.rfile.read(size)
-        return {
-            key: value
-            for key, value in parse_qsl(raw.decode())
-        }
+        raw_data = self.rfile.read(size).decode()
+        if content_type == 'application/json':
+            return json.loads(raw_data)
+        else:
+            return {
+                key: value
+                for key, value in parse_qsl(raw_data)
+            }
+
+    def accept_html(self):
+        accept = self.headers['Accept']
+        return 'text/html' in accept or 'application/xhtml+xml' in accept
 
     def index(self):
-        return self.render_template('index.html', keys=self.db.keys())
+        if self.accept_html():
+            return self.render_template('index.html', keys=self.db.keys())
+        return self.json_response({
+            'keys': {
+                key: {
+                    '@get': {
+                        'method': 'GET',
+                        'href': f'{self.server_url}/get/{key}',
+                    },
+                }
+                for key in self.db.keys()
+            },
+            '@list': {
+                'method': 'GET',
+                'href': self.server_url,
+            },
+            '@insert': {
+                '@method': 'POST',
+                'href': f'{self.server_url}/new',
+                'template': {
+                    'key': 'string',
+                    'secret': 'string',
+                },
+            },
+        })
 
     def get_key(self, key):
-        return self.render_template(
-            'get.html',
-            key=key,
-            code=generate_totp(self.db[key]),
-        )
+        code = generate_totp(self.db[key])
+        if self.accept_html():
+            return self.render_template(
+                'get.html',
+                key=key,
+                code=code,
+            )
+        return self.json_response({
+            'code': code,
+            '@list': {
+                'method': 'GET',
+                'href': self.server_url,
+            },
+            '@update': {
+                'method': 'POST',
+                'href': f'{self.server_url}/update/{key}',
+                'template': {
+                    'secret': 'string',
+                },
+            },
+            '@delete': {
+                'method': 'POST',
+                'href': f'{self.server_url}/del/{key}',
+            },
+        })
 
     def insert_key(self):
         data = self.get_data()
         key = data['key']
         self.db[key] = data['secret']
         self.db.save()
-        self.redirect(f'/get/{key}')
+        if self.accept_html():
+            self.redirect(f'/get/{key}')
+        else:
+            self.get_key(key)
 
     def update_key(self, key):
         data = self.get_data()
         self.db[key] = data['secret']
         self.db.save()
-        self.redirect(f'/get/{key}')
+        if self.accept_html():
+            self.redirect(f'/get/{key}')
+        else:
+            self.get_key(key)
 
     def delete_key(self, key):
         del self.db[key]
         self.db.save()
-        self.redirect('/')
+        if self.accept_html():
+            self.redirect('/')
+        else:
+            self.index()
 
     routes = {
         ('GET', ''): index,
@@ -97,7 +169,8 @@ def run_server(db, port):
     httpd = HTTPServer(('', port), RequestHandler)
     httpd.env = env
     httpd.db = db
-    print('Starting serveur on http://127.0.0.1:%d' % port)
+    httpd.url = get_socket_url(httpd.socket)
+    print(f'Starting serveur on {httpd.url}')
     try:
         httpd.serve_forever()
     except KeyboardInterrupt:
