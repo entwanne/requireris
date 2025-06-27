@@ -2,6 +2,7 @@
 
 from argparse import ArgumentParser
 from fnmatch import fnmatch
+from logging import getLogger
 from os import getenv
 from pathlib import Path
 from sys import stderr
@@ -11,14 +12,12 @@ from .exceptions import WrongSecret
 from .httpd import run_server
 from .totp import generate_totp
 
-
-def print_err(*args, **kwargs):
-    return print(*args, file=stderr, **kwargs)
+logger = getLogger(__name__)
 
 
 def list_keys(db, patterns=(), **kwargs):
     if not db:
-        print('No available key')
+        logger.warning('No available key')
         return
 
     print('Available keys:')
@@ -33,16 +32,19 @@ def get_secret(db, keys, **kwargs):
 
 
 def add_secret(db, key, secret, **kwargs):
-    word = 'updated' if key in db else 'inserted'
+    updated = key in db
     db[key] = secret
-    print('Key', key, word)
+    if updated:
+        logger.info('Key %s updated', key)
+    else:
+        logger.info('Key %s inserted', key)
     db.save()
 
 
 def remove_key(db, keys, **kwargs):
     for key in keys:
         del db[key]
-        print('Key', key, 'deleted')
+        logger.info('Key %s deleted', key)
     db.save()
 
 
@@ -114,11 +116,11 @@ def main():
 
         args.func(db, **vars(args))
     except KeyError as e:
-        print_err(f"Key {e} was not found in database")
+        logger.error(f"Key {e} was not found in database")
     except WrongSecret:
-        print_err("Given secret is not well-formated")
+        logger.error("Given secret is not well-formated")
     except Exception as e:
-        print_err(f"A fatal error occured, please check your database's file: {e}")
+        logger.error(f"A fatal error occured, please check your database's file: {type(e).__name__}: {e}")
 
 
 if __name__ == '__main__':

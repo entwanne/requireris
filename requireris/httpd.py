@@ -3,6 +3,7 @@ import os
 from fnmatch import fnmatch
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from importlib import resources
+from logging import getLogger
 from time import time
 from urllib.parse import parse_qsl
 
@@ -10,6 +11,8 @@ from jinja2 import Environment, PackageLoader, select_autoescape
 
 from .totp import generate_totp
 from .utils import get_socket_url
+
+logger = getLogger(__name__)
 
 
 class RequestHandler(BaseHTTPRequestHandler):
@@ -170,8 +173,9 @@ def run_server(db, port):
     httpd.env = env
     httpd.db = db
     httpd.url = get_socket_url(httpd.socket)
-    print(f'Starting serveur on {httpd.url}')
+    logger.info('Starting serveur on %s', httpd.url)
     try:
         httpd.serve_forever()
     except KeyboardInterrupt:
+        logger.info('Shutting down...')
         httpd.shutdown()
