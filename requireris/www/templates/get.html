@@ -10,14 +10,70 @@
     <p><a href="/">Back</a></p>
     <p>
       TOTP code: <b>{{ code }}</b>
-      <br/>
+      {% if data %}
+        <ul>
+          {% for name, value in data.items() %}
+            <li>{{ name }}: {{ value }}</li>
+          {% endfor %}
+        </ul>
+      {% endif %}
+      <hr/>
       <form action="/update/{{ key }}" method="post">
-	<label>Update secret: <input type="password" name="secret" /></label><br/>
-	<input type="submit" value="Update" />
+        <label>Update secret: <input type="password" name="secret" /></label><br/>
+        {% for name, value in data.items() %}
+          {% if name not in delete_fields %}
+            <label>{{ name }}: <input type="text" name="{{ name }}" value="{{ value }}" /></label>
+            <input type="submit" form="delete-field-{{ name }}" value="X" />
+            <br/>
+          {% endif %}
+        {% endfor %}
+        {% for name in additional_fields %}
+          {% if name not in data and name != 'secret' %}
+            <label>{{ name }}: <input type="text" name="{{ name }}" /></label>
+            <input type="submit" form="remove-field-{{ name }}" value="X" />
+            <br/>
+          {% endif %}
+        {% endfor %}
+        <input type="submit" value="Update" />
       </form>
-      <br/>
+      {% for name in data %}
+        <form id="delete-field-{{ name }}" method="get">
+          {% for n in additional_fields %}
+            {% if n != name %}
+              <input type="hidden" name="add-field" value="{{ n }}" />
+            {% endif %}
+          {% endfor %}
+          {% for n in delete_fields %}
+            <input type="hidden" name="del-field" value="{{ n }}" />
+          {% endfor %}
+          <input type="hidden" name="del-field" value="{{ name }}" />
+        </form>
+      {% endfor %}
+      {% for name in additional_fields %}
+        <form id="remove-field-{{ name }}" method="get">
+          {% for n in additional_fields %}
+            {% if n != name %}
+              <input type="hidden" name="add-field" value="{{ n }}" />
+            {% endif %}
+          {% endfor %}
+          {% for n in delete_fields %}
+            <input type="hidden" name="del-field" value="{{ n }}" />
+          {% endfor %}
+        </form>
+      {% endfor %}
+      <form method="get">
+        {% for name in additional_fields %}
+          <input type="hidden" name="add-field" value="{{ name }}" />
+        {% endfor %}
+        {% for name in delete_fields %}
+          <input type="hidden" name="del-field" value="{{ name }}" />
+        {% endfor %}
+        <input type="text" name="add-field" />
+        <input type="submit" value="Add field to form" />
+      </form>
+      <hr/>
       <form action="/del/{{ key }}" method="post">
-	<input type="submit" value="Delete" />
+        <input type="submit" value="Delete" />
       </form>
     </p>
   </body>

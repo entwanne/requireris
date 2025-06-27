@@ -5,10 +5,11 @@ from http.server import HTTPServer, BaseHTTPRequestHandler
 from importlib import resources
 from logging import getLogger
 from time import time
-from urllib.parse import parse_qsl
+from urllib.parse import parse_qs, parse_qsl, urlparse
 
 from jinja2 import Environment, PackageLoader, select_autoescape
 
+from .exceptions import MissingSecret
 from .totp import generate_totp
 from .utils import get_socket_url
 
@@ -66,7 +67,11 @@ class RequestHandler(BaseHTTPRequestHandler):
 
     def index(self):
         if self.accept_html():
-            return self.render_template('index.html', keys=self.db.keys())
+            return self.render_template(
+                'index.html',
+                keys=self.db.keys(),
+                additional_fields=parse_qs(self.url.query).get('add-field', []),
+            )
         return self.json_response({
             'keys': {
                 key: {
@@ -92,18 +97,33 @@ class RequestHandler(BaseHTTPRequestHandler):
         })
 
     def get_key(self, key):
-        code = generate_totp(self.db[key])
+        item = dict(self.db[key])
+        code = generate_totp(item.pop('secret'))
         if self.accept_html():
+            additional_fields = parse_qs(self.url.query).get('add-field', [])
+            delete_fields = parse_qs(self.url.query).get('del-field', [])
+            common_fields = set(additional_fields) & set(delete_fields)
+            for field in common_fields:
+                additional_fields.remove(field)
+                delete_fields.remove(field)
             return self.render_template(
                 'get.html',
                 key=key,
                 code=code,
+                data=item,
+                additional_fields=additional_fields,
+                delete_fields=delete_fields,
             )
+        item['code'] = code
         return self.json_response({
-            'code': code,
+            **item,
             '@list': {
                 'method': 'GET',
                 'href': self.server_url,
+            },
+            '@get': {
+                'method': 'GET',
+                'href': f'{self.server_url}/get/{key}',
             },
             '@update': {
                 'method': 'POST',
@@ -120,8 +140,10 @@ class RequestHandler(BaseHTTPRequestHandler):
 
     def insert_key(self):
         data = self.get_data()
-        key = data['key']
-        self.db[key] = data['secret']
+        key = data.pop('key')
+        if 'secret' not in data:
+            raise MissingSecret
+        self.db[key] = data
         self.db.save()
         if self.accept_html():
             self.redirect(f'/get/{key}')
@@ -130,7 +152,9 @@ class RequestHandler(BaseHTTPRequestHandler):
 
     def update_key(self, key):
         data = self.get_data()
-        self.db[key] = data['secret']
+        if 'secret' not in data:
+            data['secret'] = self.db[key]['secret']
+        self.db[key] = data
         self.db.save()
         if self.accept_html():
             self.redirect(f'/get/{key}')
@@ -154,7 +178,8 @@ class RequestHandler(BaseHTTPRequestHandler):
     }
 
     def route(self):
-        target, *args = self.path[1:].split('/')
+        self.url = urlparse(self.path)
+        target, *args = self.url.path[1:].split('/')
         route_func = self.routes.get((self.command, target))
         if route_func is not None:
             route_func(self, *args)

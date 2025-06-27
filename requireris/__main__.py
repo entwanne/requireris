@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-from argparse import ArgumentParser
+import argparse
 from fnmatch import fnmatch
 from logging import getLogger
 from os import getenv
@@ -28,12 +28,17 @@ def list_keys(db, patterns=(), **kwargs):
 
 def get_secret(db, keys, **kwargs):
     for key in keys:
-        print(f'{key}: {generate_totp(db[key])}')
+        item = dict(db[key])
+        secret = item.pop('secret')
+        print(f'{key}:')
+        print(f'    {generate_totp(secret)}')
+        for name, value in item.items():
+            print(f'    {name}: {value}')
 
 
 def add_secret(db, key, secret, **kwargs):
     updated = key in db
-    db[key] = secret
+    db[key] = (kwargs.get('data') or {}) | {'secret': secret}
     if updated:
         logger.info('Key %s updated', key)
     else:
@@ -52,8 +57,17 @@ def run_http_server(db, port, **kwargs):
     run_server(db, port)
 
 
+class DataDictAction(argparse.Action):
+    def __call__(self, parser, namespace, values, option_string=None):
+        data = {}
+        for arg in values:
+            key, value = arg.split('=', 1)
+            data[key] = value
+        setattr(namespace, self.dest, data)
+
+
 def _get_parser():
-    parser = ArgumentParser(prog='requireris')
+    parser = argparse.ArgumentParser(prog='requireris')
     parser.set_defaults(func=list_keys, patterns=[])
 
     parser.add_argument(
@@ -90,6 +104,7 @@ def _get_parser():
     append_parser.set_defaults(func=add_secret)
     append_parser.add_argument('key')
     append_parser.add_argument('secret')
+    append_parser.add_argument('--data', nargs='*', action=DataDictAction)
 
     delete_parser = subparsers.add_parser('delete', aliases=['del'], help="Delete all secrets for given keys")
     delete_parser.set_defaults(func=remove_key)
