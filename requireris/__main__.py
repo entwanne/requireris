@@ -1,25 +1,58 @@
 #!/usr/bin/env python3
 
 from argparse import ArgumentParser
+from fnmatch import fnmatch
 from os import getenv
 from pathlib import Path
 from sys import stderr
 
-from . import exceptions
 from .database import Database
-from .opts import opt_list, opt_get, opt_append, opt_delete
-from .httpd import opt_http
+from .exceptions import WrongSecret
+from .httpd import run_server
+from .totp import generate_totp
 
 
 def print_err(*args, **kwargs):
-    kwargs['file'] = stderr
-    return print(*args, **kwargs)
+    return print(*args, file=stderr, **kwargs)
+
+
+def list_keys(db, patterns=(), **kwargs):
+    if not db:
+        print('No available key')
+        return
+
+    print('Available keys:')
+    for key in db.keys():
+        if not patterns or any(fnmatch(key, p) for p in patterns):
+            print('-', key)
+
+
+def get_secret(db, keys, **kwargs):
+    for key in keys:
+        print(f'{key}: {generate_totp(db[key])}')
+
+
+def add_secret(db, key, secret, **kwargs):
+    word = 'updated' if key in db else 'inserted'
+    db[key] = secret
+    print('Key', key, word)
+    db.save()
+
+
+def remove_key(db, keys, **kwargs):
+    for key in keys:
+        del db[key]
+        print('Key', key, 'deleted')
+    db.save()
+
+
+def run_http_server(db, port, **kwargs):
+    run_server(db, port)
 
 
 def _get_parser():
     parser = ArgumentParser(prog='requireris')
-    parser.set_defaults(func=lambda args, db: opt_list(db, *args.patterns))
-    parser.set_defaults(patterns=[])
+    parser.set_defaults(func=list_keys, patterns=[])
 
     parser.add_argument(
         '--db-path',
@@ -44,24 +77,24 @@ def _get_parser():
 
     subparsers = parser.add_subparsers(required=False)
 
-    list_parser = subparsers.add_parser('list')
+    list_parser = subparsers.add_parser('list', help="List all keys or all keys that match given patterns")
     list_parser.add_argument('patterns', nargs='*')
 
-    get_parser = subparsers.add_parser('get')
-    get_parser.set_defaults(func=lambda args, db: opt_get(db, *args.names))
-    get_parser.add_argument('names', nargs='+')
+    get_parser = subparsers.add_parser('get', help="Get all secrets for given keys")
+    get_parser.set_defaults(func=get_secret)
+    get_parser.add_argument('keys', nargs='+')
 
-    append_parser = subparsers.add_parser('append', aliases=['add'], help="Append/Update key for name mentioned")
-    append_parser.set_defaults(func=lambda args, db: opt_append(db, args.name, args.key))
-    append_parser.add_argument('name')
+    append_parser = subparsers.add_parser('append', aliases=['add'], help="Append or update secret for given key")
+    append_parser.set_defaults(func=add_secret)
     append_parser.add_argument('key')
+    append_parser.add_argument('secret')
 
-    delete_parser = subparsers.add_parser('delete', aliases=['del'], help="Delete all entries for names mentioned")
-    delete_parser.set_defaults(func=lambda args, db: opt_delete(db, *args.names))
-    delete_parser.add_argument('names', nargs='+')
+    delete_parser = subparsers.add_parser('delete', aliases=['del'], help="Delete all secrets for given keys")
+    delete_parser.set_defaults(func=remove_key)
+    delete_parser.add_argument('keys', nargs='+')
 
     http_parser = subparsers.add_parser('http', aliases=['server'], help="Run an HTTP server")
-    http_parser.set_defaults(func=lambda args, db: opt_http(db, args.port))
+    http_parser.set_defaults(func=run_http_server)
     http_parser.add_argument('--port', nargs='?', type=int, default=8080)
 
     return parser
@@ -71,24 +104,22 @@ parser = _get_parser()
 
 
 def main():
-    args = parser.parse_args()
-    if args.db_path is None:
-        args.db_path = args.db_dir / args.db_file
+    try:
+        args = parser.parse_args()
+        if args.db_path is None:
+            args.db_path = args.db_dir / args.db_file
 
-    db = Database(args.db_path)
-    db.load(missing_ok=True)
+        db = Database(args.db_path)
+        db.load(missing_ok=True)
 
-    args.func(args, db)
+        args.func(db, **vars(args))
+    except KeyError as e:
+        print_err(f"Key {e} was not found in database")
+    except WrongSecret:
+        print_err("Given secret is not well-formated")
+    except Exception as e:
+        print_err(f"A fatal error occured, please check your database's file: {e}")
 
 
 if __name__ == '__main__':
-    try:
-        main()
-    except exceptions.NameNotExist as name:
-        print_err('Name %s does not exist' % name)
-    except exceptions.WrongKey as key:
-        print_err("The key '%s' is not well-formated" % key)
-    except exceptions.NoNamesSelected:
-        print_err('You should select names to execute this operation')
-    except:
-        print_err("A fatal error occured, please check your database's file")
+    main()

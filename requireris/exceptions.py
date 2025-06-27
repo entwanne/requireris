@@ -1,10 +1,2 @@
-class WrongKey(BaseException):
-    pass
-
-
-class NameNotExist(BaseException):
-    pass
-
-
-class NoNameSelected(BaseException):
+class WrongSecret(ValueError):
     pass

@@ -1,7 +1,7 @@
 from configparser import ConfigParser, UNNAMED_SECTION
 from base64 import b32decode
 
-from . import exceptions
+from .exceptions import WrongSecret
 
 
 class Database:
@@ -10,6 +10,8 @@ class Database:
         self._data = data
 
     def load(self, missing_ok=False):
+        self._data.clear()
+
         config = ConfigParser(allow_unnamed_section=True)
 
         try:
@@ -24,10 +26,10 @@ class Database:
         if not config.has_section(UNNAMED_SECTION):
             return
 
-        values = config[UNNAMED_SECTION]
+        secrets = config[UNNAMED_SECTION]
         return self._data.update({
-            name: key.replace(' ', '').upper()
-            for name, key in values.items()
+            key: secret.replace(' ', '').upper()
+            for key, secret in secrets.items()
         })
 
     def save(self):
@@ -35,8 +37,9 @@ class Database:
         config.read_string('a=b')
         config.remove_option(UNNAMED_SECTION, 'a')
 
-        for name, key in self.items():
-            config.set(UNNAMED_SECTION, name, key)
+        for key, secret in self.items():
+            config.set(UNNAMED_SECTION, key, secret)
+
         with self.path.open('w') as file:
             config.write(file)
 
@@ -55,12 +58,12 @@ class Database:
     def __getitem__(self, key):
         return self._data[key]
 
-    def __setitem__(self, key, value):
+    def __setitem__(self, key, secret):
         try:
-            b32decode(value.replace(' ', '').upper())
+            b32decode(secret.replace(' ', '').upper())
         except:
-            raise exceptions.WrongKey(value)
-        self._data[key] = value
+            raise WrongSecret
+        self._data[key] = secret
 
     def __delitem__(self, key):
         del self._data[key]

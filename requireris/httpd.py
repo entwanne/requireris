@@ -5,8 +5,7 @@ from time import time
 import json
 import os
 
-from . import exceptions
-from .opts import opt_append, opt_delete
+from .exceptions import WrongSecret
 from .totp import generate_totp
 
 WWW = resources.files('requireris.www')
@@ -24,21 +23,21 @@ def HandlerDB(db):
             return serve
         def act_get(self, pattern='*'):
             return (WWW / 'index.html').read_text() % pattern
-        def act_del(self, name):
+        def act_del(self, key):
             try:
-                opt_delete(db, name)
-            except exceptions.NameNotExist:
-                return 'Error: Name «%s» does not exist' % name
-            except:
-                return 'An error occurred'
+                del db[key]
+            except KeyError:
+                return f"Error: Key '{key}' does not exist"
+            except Exception:
+                return "An error occurred"
             return ''
-        def act_add(self, name, key):
+        def act_add(self, key, secret):
             try:
-                opt_append(db, name, key)
-            except exceptions.WrongKey as key:
-                return 'Error: The key «%s» is not well-formated' % key
+                db[key] = secret
+            except WrongSecret:
+                return "Error: Secret is not well-formated"
             except:
-                return 'An error occured'
+                return "An error occured"
             return ''
         def act_json_get(self, pattern='*'):
             entries = ((name, key) for (name, key) in db.items() if fnmatch(name, pattern))
@@ -79,10 +78,10 @@ def HandlerDB(db):
     return Handler
 
 
-def opt_http(db, port):
+def run_server(db, port):
     try:
         httpd = HTTPServer(('', port), HandlerDB(db))
         print('Starting serveur on http://127.0.0.1:%d' % port)
         httpd.serve_forever()
-    except:
+    except Exception:
         pass
