@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>Requireris</title>
+  </head>
+  <body>
+    <h1>Requireris</h1>
+
+    <p>
+      <ul>
+      {% for key in keys %}
+        <li><a href="/get/{{ key }}">{{ key }}</a></li>
+      {% endfor %}
+      </ul>
+    </p>
+
+    <hr/>
+
+    <p>
+      Add a new key / secret
+      <br/>
+      <form action="/new" method="post">
+	<label>Key: <input type="text" name="key" /></label><br/>
+	<label>Secret: <input type="password" name="secret" /></label><br/>
+	<input type="submit" value="Add" />
+      </form>
+  </body>
+</html>

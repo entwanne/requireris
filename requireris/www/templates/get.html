@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>Requireris - {{ key }}</title>
+  </head>
+  <body>
+    <h1>Requireris - {{ key }}</h1>
+
+    <p><a href="/">Back</a></p>
+    <p>
+      TOTP code: <b>{{ code }}</b>
+      <br/>
+      <form action="/update/{{ key }}" method="post">
+	<label>Update secret: <input type="password" name="secret" /></label><br/>
+	<input type="submit" value="Update" />
+      </form>
+      <br/>
+      <form action="/del/{{ key }}" method="post">
+	<input type="submit" value="Delete" />
+      </form>
+    </p>
+  </body>
+</html>

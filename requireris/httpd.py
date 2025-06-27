@@ -1,87 +1,104 @@
+import json
+import os
 from fnmatch import fnmatch
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from importlib import resources
 from time import time
-import json
-import os
+from urllib.parse import parse_qsl
 
-from .exceptions import WrongSecret
+from jinja2 import Environment, PackageLoader, select_autoescape
+
 from .totp import generate_totp
 
-WWW = resources.files('requireris.www')
 
+class RequestHandler(BaseHTTPRequestHandler):
+    @property
+    def env(self):
+        return self.server.env
 
-def HandlerDB(db):
-    class Handler(BaseHTTPRequestHandler):
-        def act_static_serve(self, directory):
-            def serve(path):
-                try:
-                    return (WWW / directory / path).read_text()
-                except:
-                    pass
-                return ''
-            return serve
-        def act_get(self, pattern='*'):
-            return (WWW / 'index.html').read_text() % pattern
-        def act_del(self, key):
-            try:
-                del db[key]
-            except KeyError:
-                return f"Error: Key '{key}' does not exist"
-            except Exception:
-                return "An error occurred"
-            return ''
-        def act_add(self, key, secret):
-            try:
-                db[key] = secret
-            except WrongSecret:
-                return "Error: Secret is not well-formated"
-            except:
-                return "An error occured"
-            return ''
-        def act_json_get(self, pattern='*'):
-            entries = ((name, key) for (name, key) in db.items() if fnmatch(name, pattern))
-            entries = [{"name": name, "totp": generate_totp(key)} for (name, key) in entries]
-            return json.dumps(entries)
-        def act_json_timer(self):
-            return '{"validity": %d}' % (30 - int(time()) % 30)
-        def act_json(self, act, *args):
-            actions = {
-                'get' : self.act_json_get,
-                'timer' : self.act_json_timer
-                }
-            if act in actions:
-                return actions[act](*args)
-            return ''
-        def do_GET(self):
-            actions = {
-                '' : self.act_get,
-                'get' : self.act_get,
-                'add' : self.act_add,
-                'del' : self.act_del,
-                'js' : self.act_static_serve('js'),
-                'css' : self.act_static_serve('css'),
-                'img' : self.act_static_serve('img'),
-                'json' : self.act_json
-                }
-            act, *args = self.path[1:].split('/')
-            if act in actions:
-                content = actions[act](*args)
-            else:
-                content = ''
-            if not isinstance(content, bytes):
-                self.send_response(200)
-                self.send_header('Content-type','text/html')
-                self.end_headers()
-                content = content.encode()
-            self.wfile.write(content)
-    return Handler
+    @property
+    def db(self):
+        return self.server.db
+
+    def render_template(self, tpl_path, **kwargs):
+        template = self.env.get_template(tpl_path)
+        content = template.render(**kwargs)
+
+        self.send_response(200)
+        self.send_header('Content-type', 'text/html')
+        self.end_headers()
+        self.wfile.write(content.encode())
+
+    def redirect(self, location):
+        self.send_response(303)
+        self.send_header('Location', location)
+        self.end_headers()
+
+    def get_data(self):
+        size = int(self.headers['Content-Length'])
+        raw = self.rfile.read(size)
+        return {
+            key: value
+            for key, value in parse_qsl(raw.decode())
+        }
+
+    def index(self):
+        return self.render_template('index.html', keys=self.db.keys())
+
+    def get_key(self, key):
+        return self.render_template(
+            'get.html',
+            key=key,
+            code=generate_totp(self.db[key]),
+        )
+
+    def insert_key(self):
+        data = self.get_data()
+        key = data['key']
+        self.db[key] = data['secret']
+        self.db.save()
+        self.redirect(f'/get/{key}')
+
+    def update_key(self, key):
+        data = self.get_data()
+        self.db[key] = data['secret']
+        self.db.save()
+        self.redirect(f'/get/{key}')
+
+    def delete_key(self, key):
+        del self.db[key]
+        self.db.save()
+        self.redirect('/')
+
+    routes = {
+        ('GET', ''): index,
+        ('GET', 'get'): get_key,
+        ('POST', 'new'): insert_key,
+        ('POST', 'update'): update_key,
+        ('POST', 'del'): delete_key,
+    }
+
+    def route(self):
+        target, *args = self.path[1:].split('/')
+        route_func = self.routes.get((self.command, target))
+        if route_func is not None:
+            route_func(self, *args)
+        else:
+            self.send_error(404)
+
+    do_GET = do_POST = route
 
 
 def run_server(db, port):
+    env = Environment(
+        loader=PackageLoader('requireris.www'),
+        autoescape=select_autoescape()
+    )
+    httpd = HTTPServer(('', port), RequestHandler)
+    httpd.env = env
+    httpd.db = db
+    print('Starting serveur on http://127.0.0.1:%d' % port)
     try:
-        httpd = HTTPServer(('', port), HandlerDB(db))
-        print('Starting serveur on http://127.0.0.1:%d' % port)
         httpd.serve_forever()
-    except Exception:
-        pass
+    except KeyboardInterrupt:
+        httpd.shutdown()
