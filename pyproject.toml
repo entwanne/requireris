@@ -18,5 +18,11 @@ homepage = "https://github.com/entwanne/requireris"
 [project.scripts]
 requireris = "requireris.__main__:main"
 
+[project.optional-dependencies]
+dev = [
+    "pytest",
+    "pytest-mock",
+]
+
 [tools.setuptools.package-data]
 requireris = "www/*"

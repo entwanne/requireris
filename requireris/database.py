@@ -67,7 +67,7 @@ class Database:
         if 'secret' not in item:
             raise MissingSecret(key)
         try:
-            b32decode(item['secret'].replace(' ', '').upper())
+            b32decode(item['secret'].upper())
         except:
             raise WrongSecret(key)
         self._data[key] = item
