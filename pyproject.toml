@@ -22,6 +22,8 @@ dev = [
 ]
 http = [
     "Jinja2==3.*",
+    "fastapi==0.*",
+    "python-multipart==0.*",
 ]
 
 [tools.setuptools.package-data]
