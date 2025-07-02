@@ -189,7 +189,7 @@ class RequestHandler(BaseHTTPRequestHandler):
     do_GET = do_POST = route
 
 
-def run_server(db, port):
+def run_server(db, port, on_started=None):
     env = Environment(
         loader=PackageLoader('requireris.www'),
         autoescape=select_autoescape()
@@ -199,6 +199,8 @@ def run_server(db, port):
     httpd.db = db
     httpd.url = get_socket_url(httpd.socket)
     logger.info('Starting serveur on %s', httpd.url)
+    if on_started:
+        on_started(httpd)
     try:
         httpd.serve_forever()
     except KeyboardInterrupt:

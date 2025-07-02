@@ -9,7 +9,6 @@ from sys import stderr
 
 from .database import Database
 from .exceptions import WrongSecret
-from .httpd import run_server
 from .totp import generate_totp
 
 logger = getLogger(__name__)
@@ -53,8 +52,17 @@ def remove_key(db, keys, **kwargs):
     db.save()
 
 
-def run_http_server(db, port, **kwargs):
-    run_server(db, port)
+def run_http_server(db, port, open=False, **kwargs):
+    def open_browser(httpd):
+        import webbrowser
+        webbrowser.open(httpd.url)
+
+    try:
+        from .httpd import run_server
+    except ImportError:
+        logger.error("HTTP server not available, install requireris[http] dependencies to use it")
+    else:
+        run_server(db, port, on_started=open_browser if open else None)
 
 
 class DataDictAction(argparse.Action):
@@ -113,6 +121,8 @@ def _get_parser():
     http_parser = subparsers.add_parser('http', aliases=['server'], help="Run an HTTP server")
     http_parser.set_defaults(func=run_http_server)
     http_parser.add_argument('--port', nargs='?', type=int, default=8080)
+    http_parser.add_argument('--open', default=False, action=argparse.BooleanOptionalAction, help="Open website in browser")
+
 
     return parser
 

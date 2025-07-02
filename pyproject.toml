@@ -8,9 +8,6 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "requireris"
 version = "2.0.0"
-dependencies = [
-    "Jinja2==3.*",
-]
 
 [project.urls]
 homepage = "https://github.com/entwanne/requireris"
@@ -22,6 +19,9 @@ requireris = "requireris.__main__:main"
 dev = [
     "pytest",
     "pytest-mock",
+]
+http = [
+    "Jinja2==3.*",
 ]
 
 [tools.setuptools.package-data]
