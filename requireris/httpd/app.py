@@ -66,7 +66,13 @@ def get_key(
         additional_fields: Annotated[list[str], fastapi.Query(alias='add-field')] = [],
         delete_fields: Annotated[list[str], fastapi.Query(alias='del-field')] = [],
 ):
-    item = dict(app.db[key])
+    try:
+        item = dict(app.db[key])
+    except KeyError as e:
+        raise fastapi.HTTPException(
+            status_code=fastapi.status.HTTP_404_NOT_FOUND,
+            detail=f"Key {key!r} not found",
+        )
     code = generate_totp(item.pop('secret'))
     if accept_html:
         common_fields = set(additional_fields) & set(delete_fields)
@@ -130,14 +136,20 @@ def insert_key(
 @app.post('/del/{key}')
 @app.delete('/del/{key}')
 def delete_key(key, request: fastapi.Request, accept_html: AcceptHTML):
-    del app.db[key]
+    try:
+        del app.db[key]
+    except KeyError as e:
+        raise fastapi.HTTPException(
+            status_code=fastapi.status.HTTP_404_NOT_FOUND,
+            detail=f"Key {key!r} not found",
+        )
     app.db.save()
     if accept_html:
         return fastapi.responses.RedirectResponse(
             '/',
             status_code=fastapi.status.HTTP_303_SEE_OTHER,
         )
-    return index(request, accept_html=False)
+    return fastapi.responses.Response(status_code=fastapi.status.HTTP_204_NO_CONTENT)
 
 
 @app.post('/update/{key}')
@@ -149,7 +161,7 @@ def update_key(
         request: fastapi.Request,
         accept_html: AcceptHTML,
 ):
-    if not data.secret:
+    if not data.secret and key in app.db:
         data.secret = app.db[key]['secret']
     app.db[key] = data.model_dump()
     app.db.save()

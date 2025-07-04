@@ -16,12 +16,14 @@ homepage = "https://github.com/entwanne/requireris"
 requireris = "requireris.__main__:main"
 
 [project.optional-dependencies]
-dev = [
-    "pytest",
-    "pytest-mock",
-]
 http = [
     "Jinja2==3.*",
     "fastapi==0.*",
     "python-multipart==0.*",
+]
+dev = [
+    "requireris[http]",
+    "pytest",
+    "pytest-mock",
+    "httpx",
 ]
