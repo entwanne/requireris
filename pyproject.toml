@@ -25,6 +25,3 @@ http = [
     "fastapi==0.*",
     "python-multipart==0.*",
 ]
-
-[tools.setuptools.package-data]
-requireris = "www/*"
