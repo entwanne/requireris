@@ -35,4 +35,4 @@ class ASGIRequestHandler(BaseHTTPRequestHandler):
                     self.wfile.write(data['body'])
         asyncio.run(self.server.app(scope, receive, send))
 
-    do_GET = do_POST = do_PUT = do_DELETE = do_HEAD = do_OPTIONS = route
+    do_GET = do_HEAD = do_POST = do_PUT = do_PATCH = do_DELETE = do_CONNECT = do_OPTIONS = do_TRACE = route

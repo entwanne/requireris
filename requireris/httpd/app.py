@@ -19,6 +19,7 @@ templates = fastapi.templating.Jinja2Templates(
 
 
 @app.get('/')
+@app.get('/keys')
 def index(
         request: fastapi.Request,
         accept_html: AcceptHTML,
@@ -38,18 +39,18 @@ def index(
             key: {
                 '@get': {
                     'method': 'GET',
-                    'href': f'{app.url}/get/{key}',
+                    'href': f'{app.url}/keys/{key}',
                 },
             }
             for key in app.db.keys()
         },
         '@list': {
             'method': 'GET',
-            'href': app.url,
+            'href': f'{app.url}/keys',
         },
         '@insert': {
             '@method': 'POST',
-            'href': f'{app.url}/new',
+            'href': f'{app.url}/keys',
             'template': {
                 'key': 'string',
                 'secret': 'string',
@@ -58,6 +59,7 @@ def index(
     }
 
 
+@app.get('/keys/{key}')
 @app.get('/get/{key}')
 def get_key(
         key: str,
@@ -95,27 +97,28 @@ def get_key(
         'code': code,
         '@list': {
             'method': 'GET',
-            'href': app.url,
+            'href': f'{app.url}/keys',
         },
         '@get': {
             'method': 'GET',
-            'href': f'{app.url}/get/{key}',
+            'href': f'{app.url}/keys/{key}',
         },
         '@update': {
             'method': 'PUT',
-            'href': f'{app.url}/update/{key}',
+            'href': f'{app.url}/keys/{key}',
             'template': {
                 'secret': 'string',
             },
         },
         '@delete': {
             'method': 'DELETE',
-            'href': f'{app.url}/del/{key}',
+            'href': f'{app.url}/keys/{key}',
         },
     }
 
 
 @app.post('/new')
+@app.post('/keys')
 def insert_key(
         data: Annotated[InsertData, FormOrJSON()],
         request: fastapi.Request,
@@ -134,7 +137,7 @@ def insert_key(
 
 
 @app.post('/del/{key}')
-@app.delete('/del/{key}')
+@app.delete('/keys/{key}')
 def delete_key(key, request: fastapi.Request, accept_html: AcceptHTML):
     try:
         del app.db[key]
@@ -153,8 +156,8 @@ def delete_key(key, request: fastapi.Request, accept_html: AcceptHTML):
 
 
 @app.post('/update/{key}')
-@app.put('/update/{key}')
-@app.patch('/update/{key}')
+@app.put('/keys/{key}')
+@app.patch('/keys/{key}')
 def update_key(
         key,
         data: Annotated[UpdateData, FormOrJSON()],
@@ -163,7 +166,10 @@ def update_key(
 ):
     if not data.secret and key in app.db:
         data.secret = app.db[key]['secret']
-    app.db[key] = data.model_dump()
+    if request.method == 'PATCH':
+        app.db[key] |= data.model_dump()
+    else:
+        app.db[key] = data.model_dump()
     app.db.save()
     if accept_html:
         return fastapi.responses.RedirectResponse(
